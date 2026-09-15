@@ -76,3 +76,10 @@ def test_lang_parameter_and_no_yajna_reader_name_left():
     (info panel, feedback JSON, flag line) — the owner found the info icon still saying Yajna."""
     assert 'Q.get("lang")' in HTML and 'out.push("lang=es")' in HTML, "the lang parameter is not wired"
     assert "Yajna Reader" not in HTML, "a 'Yajna Reader' string survived in the built page"
+
+
+def test_reference_strip_names_the_real_host_of_the_link():
+    """#315 round 5 (owner): the Osho card said 'satyamyogaprasad.net' while its link opened
+    oshofragrance.org. The strip must derive the host from the url, never hardcode one."""
+    assert '"satyamyogaprasad.net → p."' not in HTML, "the host is still hardcoded in the reference strip"
+    assert "new URL(it.url).hostname" in HTML

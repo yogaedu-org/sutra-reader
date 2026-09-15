@@ -738,9 +738,14 @@ __THEME_CSS__
     if (it.year)    g.appendChild(field("Year", it.year));
     if (it.edition) g.appendChild(field("Edition", it.edition));
     g.appendChild(field("Printed page", it.page || "not stated in the text"));
-    if (it.url) g.appendChild(field(it.exact ? "Open at this page" : "Open the book",
-                                    it.exact ? "satyamyogaprasad.net → p." + it.page
-                                             : "satyamyogaprasad.net", it.url));
+    // #315 r5 (owner): the Osho and Vyāsa cards link OFF satyamyogaprasad.net — the label must
+    // name the host the link actually opens, never a hardcoded one.
+    if (it.url){
+      var host = ""; try { host = new URL(it.url).hostname.replace(/^www\./, ""); } catch(e){ host = it.url; }
+      var onSyp = /satyamyogaprasad\.net$/.test(host);
+      g.appendChild(field(onSyp ? (it.exact ? "Open at this page" : "Open the book") : "Source online",
+                          host + (onSyp && it.exact && it.page ? " → p." + it.page : ""), it.url));
+    }
     g.appendChild(field("Length", it.words + " words"));
     if (FEAT.showSourceFile !== false && it.source_file) g.appendChild(field("Source text", it.source_file));
 
