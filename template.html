@@ -22,7 +22,7 @@ body.live-on .audio-label{display:none}
 .icon.lang{font-family:var(--sans);font-weight:700;font-size:.8rem;letter-spacing:.04em}
 .icon.lang[aria-pressed="true"]{color:var(--ember)}
 </style></head><body>
-<title>Santosha Reader</title>
+<title>Sutra Reader</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,300;1,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -357,7 +357,7 @@ __THEME_CSS__
   <div class="topbar">
     <span class="left-icons">
       <button class="icon" id="infoBtn" type="button" title="About this reader" aria-expanded="false">&#9432;</button>
-      <button class="icon" id="linkBtn" type="button" title="Parameters: apply tab / deck / cards / card / auto / fit / live to this view, or copy a link to it" aria-expanded="false">&#128279;</button>
+      <button class="icon" id="linkBtn" type="button" title="Parameters: apply tab / deck / cards / card / auto / fit / live / lang to this view, or copy a link to it" aria-expanded="false">&#128279;</button>
       <button class="icon" id="themeBtn" type="button" title="Theme: follows your device">&#9728;&#9790;</button>
       <button class="icon lang" id="langBtn" type="button" title="Idioma / Language: English &harr; Espa&ntilde;ol (L)" aria-pressed="false">ES</button>
     </span>
@@ -377,7 +377,7 @@ __THEME_CSS__
     </span>
   </div>
   <p class="site-credit" id="siteCredit" hidden>Created with &#129504;&#10084;&#65039;&#128591; by <a href="https://yogicapproach.com" target="_blank" rel="noopener">YogicApproach</a> for <a href="https://github.com/yogaedu-org" target="_blank" rel="noopener">yogaedu.org</a>.
-    <span class="muted">&middot; Yajna Reader &middot; <span id="creditRepo"></span></span>
+    <span class="muted">&middot; Sutra Reader &middot; <span id="creditRepo"></span></span>
     <span class="muted" id="feedbackNote" hidden>&middot;
       <a id="feedbackLink" class="feedback-link" href="#" target="_blank" rel="noopener">Feedback</a><span
         id="feedbackText"></span><a id="feedbackArrow" class="src ext" href="#" target="_blank"
@@ -385,7 +385,7 @@ __THEME_CSS__
   <p class="build-stamp" id="buildStamp" hidden>Last updated &middot; <time id="buildWhen"></time> &middot; <code id="buildCommit"></code></p>
   <div class="linkbar" id="linkbar" hidden>
     <input id="linkIn" type="text" spellcheck="false" autocomplete="off" aria-label="URL parameters for this view"
-           placeholder="tab=stories&amp;deck=stories-sivananda-stories&amp;cards=1-3,7&amp;auto=8">
+           placeholder="tab=sutra&amp;deck=sutra-renderings&amp;card=1&amp;lang=es">
     <button class="btn primary" id="linkApply" type="button" title="Show the view these parameters describe (Enter)">Apply</button>
     <button class="btn" id="linkCopy" type="button" title="Copy a link to this view">Copy link</button>
     <span class="muted" id="linkMsg" aria-live="polite"></span>
@@ -393,8 +393,8 @@ __THEME_CSS__
   <div class="fitbar" id="fitbar" hidden></div>
   <audio id="bgm" preload="none" hidden></audio>
   <header>
-    <p class="occasion" id="occasion">Sri Lakshmi-Narayana Mahayajna</p>
-    <h1>Readings for the Yajna</h1>
+    <p class="occasion" id="occasion">Santosha — Yoga Sutras II.42</p>
+    <h1>Santoshad anuttamah sukha-labhah</h1>
     <p class="dates" id="dates"></p>
   </header>
 
@@ -845,7 +845,7 @@ __THEME_CSS__
   edApply();
   function edSelInfo(){ $("edSelN").textContent = ED.selected.length ? "(" + ED.selected.length + ")" : ""; }
   function edHeader(kind){
-    return {_this_is: "Yajna Reader " + kind + " — " + (CONFIG.repo || "repo?") + " " + (CONFIG.project || "project?")
+    return {_this_is: "Sutra Reader " + kind + " — " + (CONFIG.repo || "repo?") + " " + (CONFIG.project || "project?")
       + " — feed it to build.py in that repo; any other repo should refuse it",
       repo: CONFIG.repo || "", project: CONFIG.project || "", made: new Date().toISOString()};
   }
@@ -951,7 +951,7 @@ __THEME_CSS__
   function hhmm(ts){ var x = new Date(ts); return ("0" + x.getHours()).slice(-2) + ":" + ("0" + x.getMinutes()).slice(-2); }
   function fbHeader(d, it, tabId){
     return {
-      _this_is: "Yajna Reader feedback — " + (CONFIG.repo || "repo?") + " " + (CONFIG.project || "project?")
+      _this_is: "Sutra Reader feedback — " + (CONFIG.repo || "repo?") + " " + (CONFIG.project || "project?")
         + " — paste it back to Claude in that repo; any other repo should refuse it",
       repo: CONFIG.repo || "", project: CONFIG.project || "", occasion: CONFIG.occasion || "",
       tab: tabId, deck: d.id, card: it.id || "", title: it.title, book: it.book || "", page: it.page || "",
@@ -1078,7 +1078,7 @@ __THEME_CSS__
   $("flagBtn").addEventListener("click", function(){
     var d = deck(), it = item(); if (!it) return;
     var h = fbHeader(d, it, TABS[state.tab].id);
-    var line = "[Yajna Reader flag] " + h.tab + " / " + h.deck + " / " + h.card + " | " + h.title + " | " + h.book
+    var line = "[Sutra Reader flag] " + h.tab + " / " + h.deck + " / " + h.card + " | " + h.title + " | " + h.book
       + (h.page ? " p. " + h.page : "") + " | " + h.url;
     var doc = (CONFIG.feedback || {}).url || (CONFIG.feedback || {}).docUrl || "";
     // A GitHub issue FORM prefills from query parameters named after each field id, so the card
@@ -1128,6 +1128,7 @@ __THEME_CSS__
     render();
   }
   try { state.lang = localStorage.getItem(SK + "lang") || "en"; } catch(e){ state.lang = "en"; }
+  if (Q.get("lang") === "es" || Q.get("lang") === "en") state.lang = Q.get("lang");  // #315 r4: a link sets the language
   $("langBtn").addEventListener("click", function(){ setLang(state.lang === "es" ? "en" : "es"); });
   $("langBtn").setAttribute("aria-pressed", state.lang === "es" ? "true" : "false"); $("langBtn").textContent = state.lang === "es" ? "EN" : "ES";
   document.addEventListener("keydown", function(e){
@@ -1274,6 +1275,7 @@ __THEME_CSS__
       return out.join("&");
     }
     if (d) out.push("deck=" + d.id);
+    if (state.lang === "es") out.push("lang=es");
     if (pk) out.push("cards=" + pk.map(function(i){ return i + 1; }).join(","));
     out.push("card=" + (state.idx + 1));
     if (state.auto) out.push("auto=" + secs());
@@ -1281,6 +1283,7 @@ __THEME_CSS__
     return out.join("&");
   }
   function applyParamString(str){   // same effect as loading the page with ?str
+    var pl = new URLSearchParams(str).get("lang"); if (pl === "es" || pl === "en") setLang(pl);
     Q = new URLSearchParams((str || "").trim().replace(/^[?#]/, ""));
     state.tab = 0; state.deck = 0; state.idx = 0; PICKS = {};
     applyQuery();

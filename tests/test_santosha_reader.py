@@ -38,7 +38,7 @@ def test_the_build_carries_the_language_toggle_and_every_deck():
     assert 'id="langBtn"' in HTML and 'e.key === "l" || e.key === "L"' in HTML, "(b) the ES toggle is not in the build"
     for d in DECKS:
         assert d["id"] in HTML, f"(b) deck {d['id']} missing from the build"
-    assert "<title>Santosha Reader</title>" in HTML or "<title>Sutra Reader</title>" in HTML
+    assert "<title>Sutra Reader</title>" in HTML
 
 
 def test_the_sutra_tab_opens_with_satyananda_then_vyasa_then_a_contemporary():
@@ -68,3 +68,11 @@ def test_card_audio_files_exist_beside_the_page_and_the_player_is_rendered():
     assert 'id="cardAudio"' in HTML and 'el.controls = true' in HTML, "the per-card player is not in the build"
     sutra = next(i for d in DECKS for i in d["items"] if i["id"] == "sutra:satyananda")
     assert len(sutra.get("audio") or []) >= 1, "the sutra card lost its audio"
+
+
+def test_lang_parameter_and_no_yajna_reader_name_left():
+    """#315 round 4: `?lang=es` must open the page in Spanish and the link panel must emit it;
+    and the page must call itself Sutra Reader everywhere the LNMY template said Yajna Reader
+    (info panel, feedback JSON, flag line) — the owner found the info icon still saying Yajna."""
+    assert 'Q.get("lang")' in HTML and 'out.push("lang=es")' in HTML, "the lang parameter is not wired"
+    assert "Yajna Reader" not in HTML, "a 'Yajna Reader' string survived in the built page"
