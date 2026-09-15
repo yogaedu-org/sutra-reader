@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}
 /* #315 round 3: per-card audio */
-.card-audio{display:flex;flex-direction:column;gap:.35em;margin:.9em 0 0}
+.card-audio{display:flex;flex-direction:column;gap:.35em;margin:0 0 .9em}
 .card-audio:empty{display:none}
 .audio-row{display:flex;align-items:center;gap:.7em;flex-wrap:wrap}
 .audio-label{font-family:var(--sans);font-size:.72rem;color:var(--muted);min-width:14em}
@@ -439,8 +439,8 @@ __THEME_CSS__
         <h2 id="title"></h2>
         <p class="credit" id="credit"></p>
         <p class="source-line" id="sourceLine"></p>
-        <div class="body" id="body"></div>
         <div class="card-audio" id="cardAudio"></div>
+        <div class="body" id="body"></div>
         <p class="trans-note" id="transNote"></p>
         <p class="attrib" id="attrib"></p>
       </div>

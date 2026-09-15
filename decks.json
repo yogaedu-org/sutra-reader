@@ -26,10 +26,6 @@
      "words": 197,
      "audio": [
       {
-       "src": "audio/santosha-ii42-es-elvira.mp3",
-       "label": "Español · voz Elvira (castellano) · 1:08"
-      },
-      {
        "src": "audio/santosha-ii42-es-dalia.mp3",
        "label": "Español · voz Dalia (latinoamericana) · 1:08"
       }
