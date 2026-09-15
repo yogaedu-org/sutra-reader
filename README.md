@@ -12,7 +12,7 @@ Tabs: **The Sutra** (Swami Satyananda's rendering from *Four Chapters on Freedom
 Osho) · **Readings** by author · **Stories** · **Quotes** (bilingual) · **Etymology** (the sam- family).
 
 Keys: `←` `→` `space` move · `L` English ↔ Español · `V` live (hide counts and references) ·
-`A` auto-advance · `F` full screen · `Esc` stop.
+`A` auto-advance · `F` full screen · `Esc` stop · `[` `]` switch sutra (#316).
 
 ## Rebuild the page
 
@@ -23,7 +23,7 @@ python -m pytest tests -q  # the guards
 
 | file | role |
 |---|---|
-| `decks.json` | the content — every card, every deck, in reading order |
+| `decks.json` | the content — every sutra, every deck, every card, in reading order |
 | `config.json` | tabs, auto-advance bounds, feature toggles, colour + type tokens |
 | `template.html` | the page: markup, CSS, JS, three placeholders the build fills |
 | `build.py` | the build (no network, no model) |

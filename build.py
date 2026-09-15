@@ -7,6 +7,11 @@ The template carries three placeholders: __PAYLOAD_JSON__ (decks), __CONFIG_JSON
 __THEME_CSS__ (colour + type tokens rendered from config["theme"] / config["type"]). Leaving any
 of them behind is a build failure, never a warning. Word counts are recomputed from the card
 text so the reference strip cannot drift from what is on the card.
+
+#316: decks.json carries a SUTRA level above the decks -- {"sutras": [{"id","label","sanskrit",
+"decks":[...]}, ...]}. A legacy file with a bare {"decks": [...]} (no "sutras" key) is accepted
+too, as one implicit sutra -- so an old decks.json never hard-fails a build. The page payload
+built from either shape always carries "sutras", never the bare legacy form.
 """
 from __future__ import annotations
 
@@ -49,6 +54,28 @@ def _js(obj) -> str:
 
 
 
+def _load_decks_doc(here: pathlib.Path) -> dict:
+    """decks.json, normalized to {"sutras": [{"id","label","sanskrit","decks":[...]}]}.
+
+    A legacy {"decks": [...]} file (no "sutras" key) is treated as one implicit sutra, so a file
+    written before #316 behaves exactly as it did. Every caller -- build(), apply_patch(),
+    build_selection() -- reads decks.json through this, never raw, so there is exactly one place
+    that knows both shapes.
+    """
+    raw = json.loads((here / "decks.json").read_text("utf-8"))
+    if "sutras" in raw:
+        return raw
+    return {"sutras": [{"id": "default", "label": "", "sanskrit": "", "decks": raw["decks"]}]}
+
+
+def _all_decks(doc: dict):
+    """Every deck, across every sutra, in order -- deck and card ids are unique across the whole
+    corpus, so patch/selection logic keyed by those ids needs no sutra-awareness of its own."""
+    for sutra in doc["sutras"]:
+        for d in sutra["decks"]:
+            yield d
+
+
 def build_stamp(here: pathlib.Path) -> dict:
     """Commit date + short hash of HEAD, so a reader can say which build they are looking at.
 
@@ -66,7 +93,7 @@ def build_stamp(here: pathlib.Path) -> dict:
     return {"commit": commit, "when": when + " (NST)"}
 
 def build(out: pathlib.Path | None = None, here: pathlib.Path = HERE) -> pathlib.Path:
-    decks = json.loads((here / "decks.json").read_text("utf-8"))
+    doc = _load_decks_doc(here)
     cfg = json.loads((here / "config.json").read_text("utf-8"))
     tpl = (here / "template.html").read_text("utf-8")
     # an exporter building outside the repo pre-seeds the stamp; git is unreachable there (#302)
@@ -77,11 +104,11 @@ def build(out: pathlib.Path | None = None, here: pathlib.Path = HERE) -> pathlib
     # written before states existed behaves exactly as it did. Held-back cards are COUNTED and
     # reported: a curation decision that removes 31 readings must never be silent.
     denied = 0
-    for d in decks["decks"]:
+    for d in _all_decks(doc):
         keep = [it for it in d["items"] if it.get("state") != "denied"]
         denied += len(d["items"]) - len(keep)
         d["items"] = keep
-    for d in decks["decks"]:
+    for d in _all_decks(doc):
         for it in d["items"]:
             if not expose_path:
                 it.pop("source_file", None)
@@ -89,7 +116,7 @@ def build(out: pathlib.Path | None = None, here: pathlib.Path = HERE) -> pathlib
             if missing:
                 raise SystemExit(f"build: deck {d['id']!r} card {it.get('title')!r} lacks {missing}")
             it["words"] = len(it["md"].split())
-    html = (tpl.replace("__PAYLOAD_JSON__", _js(decks))
+    html = (tpl.replace("__PAYLOAD_JSON__", _js(doc))
                .replace("__CONFIG_JSON__", _js(cfg))
                .replace("__THEME_CSS__", theme_css(cfg)))
     left = [p for p in PLACEHOLDERS if p in html]
@@ -97,9 +124,11 @@ def build(out: pathlib.Path | None = None, here: pathlib.Path = HERE) -> pathlib
         raise SystemExit(f"build: placeholder(s) survived: {left}")
     target = out or (here / cfg.get("output", "yajna-reader.html"))
     target.write_text(html, "utf-8", newline="\n")
-    n = sum(len(d["items"]) for d in decks["decks"])
+    n = sum(len(d["items"]) for d in _all_decks(doc))
+    ndecks = sum(len(s["decks"]) for s in doc["sutras"])
     held = f", {denied} denied held back" if denied else ""
-    print(f"built {target} - {len(decks['decks'])} decks, {n} cards{held}, {target.stat().st_size:,} bytes")
+    print(f"built {target} - {len(doc['sutras'])} sutra(s), {ndecks} decks, {n} cards{held}, "
+          f"{target.stat().st_size:,} bytes")
     return target
 
 
@@ -118,10 +147,10 @@ def apply_patch(patch_path: pathlib.Path, here: pathlib.Path = HERE) -> None:
     """Write an edit-mode patch (order / hidden / edits) permanently into decks.json.
     Text edits ("md") are applied but printed loudly: run validate.py before building."""
     patch = json.loads(patch_path.read_text("utf-8")); _check_header(patch, here)
-    dp = here / "decks.json"; decks = json.loads(dp.read_text("utf-8"))
+    dp = here / "decks.json"; doc = _load_decks_doc(here)
     n_order = n_hidden = n_edit = 0; text_edits = []
     hidden = set(patch.get("hidden") or []); edits = patch.get("edits") or {}
-    for d in decks["decks"]:
+    for d in _all_decks(doc):
         order = (patch.get("order") or {}).get(d["id"])
         if order:
             by = {it["id"]: it for it in d["items"]}
@@ -136,7 +165,7 @@ def apply_patch(patch_path: pathlib.Path, here: pathlib.Path = HERE) -> None:
                         it[k] = e[k]; n_edit += 1
                         if k == "md":
                             text_edits.append(it["title"])
-    dp.write_text(json.dumps(decks, ensure_ascii=False, indent=1), "utf-8", newline="\n")
+    dp.write_text(json.dumps(doc, ensure_ascii=False, indent=1), "utf-8", newline="\n")
     print(f"applied: {n_order} deck orders, {n_hidden} cards hidden, {n_edit} field edits")
     if text_edits:
         print("TEXT EDITED — run validate.py before build:", "; ".join(text_edits))
@@ -146,13 +175,13 @@ def build_selection(sel_path: pathlib.Path, out: pathlib.Path, here: pathlib.Pat
     """One hostable page holding only the selected cards, in that order (#282). The selection's
     deck.title / occasion / audio override the config; everything else is inherited."""
     sel = json.loads(sel_path.read_text("utf-8")); _check_header(sel, here)
-    decks = json.loads((here / "decks.json").read_text("utf-8")); cfg = json.loads((here / "config.json").read_text("utf-8"))
+    doc = _load_decks_doc(here); cfg = json.loads((here / "config.json").read_text("utf-8"))
     kinds = {}
     for t in cfg.get("tabs", []):
         for k in t.get("kinds", []):
             kinds[k] = t["id"]
     by = {}
-    for d in decks["decks"]:
+    for d in _all_decks(doc):
         for it in d["items"]:
             it = dict(it); it["kind"] = kinds.get(d["kind"], d["kind"]); it["deck_label"] = d.get("label") or d.get("short"); by[it["id"]] = it
     ids = sel.get("selection") or []

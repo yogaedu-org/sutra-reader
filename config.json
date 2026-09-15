@@ -106,5 +106,9 @@
   "quoteMinPx": 24,
   "quoteMaxPx": 52
  },
- "about": "Readings on santosha for Patanjali Yoga Sutras II.42, verbatim from the published books of the Satyananda Yoga tradition (satyamyogaprasad.net), with a Spanish translation prepared for the talk of 15 September 2026. Press L to switch language."
+ "about": "Readings on santosha for Patanjali Yoga Sutras II.42, verbatim from the published books of the Satyananda Yoga tradition (satyamyogaprasad.net), with a Spanish translation prepared for the talk of 15 September 2026. Press L to switch language.",
+ "build": {
+  "commit": "b3d5fbc02",
+  "when": "2026-09-15 21:38 (NST)"
+ }
 }

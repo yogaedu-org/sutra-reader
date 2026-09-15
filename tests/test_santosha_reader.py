@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """#315 — the Santosha reader (events/santosha-pys-2-42-2026-09/reader), built from the corpus.
+#316 adds a SUTRA level above the decks, so the reader can hold more than one sutra.
 
 NAMED FAILURES:
   (a) A CARD WITHOUT SPANISH — the owner asked for English + Spanish on every card; the toggle
@@ -11,9 +12,16 @@ NAMED FAILURES:
       (owner's order for the talk).
   (d) THE ETYMOLOGY TAB — santoṣa must be on it, and the family table must reach the page as a
       real <table> (marked's gfm tables), not as pipe characters.
+  (e) THE SILENT MIGRATION — #316 moves every deck under a "sutras" level; a migration that drops,
+      reorders or mutates a single card's text while doing so is worse than one that crashes,
+      because nothing on the page would say so.
+  (f) THE STRIP NOBODY NOTICES — the sutra strip must render even with one sutra, or the room
+      never learns the affordance before a second sutra ships; and switching sutras must not leak
+      one sutra's favourites or reading position into another's.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -22,7 +30,9 @@ REPO = Path(__file__).resolve().parents[1]
 # decks.json at the repo root and builds index.html. The same guards run in both trees.
 _nested = REPO / "events" / "santosha-pys-2-42-2026-09" / "reader"
 R = _nested if (_nested / "decks.json").is_file() else REPO
-DECKS = json.loads((R / "decks.json").read_text(encoding="utf-8"))["decks"]
+DECKS_JSON = json.loads((R / "decks.json").read_text(encoding="utf-8"))
+SUTRAS = DECKS_JSON["sutras"]
+DECKS = [d for s in SUTRAS for d in s["decks"]]
 CONFIG = json.loads((R / "config.json").read_text(encoding="utf-8"))
 HTML = (R / CONFIG.get("output", "santosha-reader.html")).read_text(encoding="utf-8")
 SHOWN_KINDS = {k for t in CONFIG["tabs"] for k in t["kinds"]}
@@ -76,6 +86,85 @@ def test_lang_parameter_and_no_yajna_reader_name_left():
     (info panel, feedback JSON, flag line) — the owner found the info icon still saying Yajna."""
     assert 'Q.get("lang")' in HTML and 'out.push("lang=es")' in HTML, "the lang parameter is not wired"
     assert "Yajna Reader" not in HTML, "a 'Yajna Reader' string survived in the built page"
+
+
+# ---- #316 round 1: decks.json gains a sutra level -------------------------------------------
+
+# The sha256 of the ORIGINAL flat decks array (json.dumps, ensure_ascii=False, sort_keys=True),
+# captured before the #316 migration moved it under sutras[0]["decks"]. A migration that drops,
+# reorders keys in a way that changes content, or mutates one character of any card's md/md_es
+# changes this digest -- the whole point of (e).
+_PRE_MIGRATION_DECKS_SHA256 = "a22bf44167f34087202ae0d9e382609e81272b8ba47b5fdf4b1dabe6f73306f3"
+
+
+def test_sutras_level_exists_with_the_owners_id_and_sanskrit():
+    """(e) decks.json must carry a "sutras" list, not a bare "decks" list, and the first (only)
+    sutra must be II.42 with its label and the sutra's own Sanskrit line."""
+    assert isinstance(SUTRAS, list) and len(SUTRAS) >= 1
+    s = SUTRAS[0]
+    assert s["id"] == "2.42"
+    assert "Santo" in s["label"]
+    assert s["sanskrit"] == "santoṣād anuttamaḥ sukha-lābhaḥ"
+    assert isinstance(s["decks"], list) and s["decks"], "the sutra must carry its decks"
+
+
+def test_the_migration_moved_the_decks_array_byte_identical():
+    """(e) THE SILENT MIGRATION. Proves the move was pure JSON restructuring: hashing the exact
+    decks array now sitting under sutras[0] must reproduce the digest of the pre-#316 file."""
+    got = hashlib.sha256(
+        json.dumps(SUTRAS[0]["decks"], ensure_ascii=False, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    assert got == _PRE_MIGRATION_DECKS_SHA256, "(e) card text changed during the sutras migration"
+
+
+def _load_build():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("santosha_build", R / "build.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_build_accepts_the_legacy_flat_decks_shape_too(tmp_path):
+    """(e) build.py must accept BOTH the new {"sutras": [...]} shape and an old bare
+    {"decks": [...]} file (one implicit sutra) -- so a legacy decks.json never hard-fails a
+    build. Built against a minimal flat fixture, never the real corpus-derived decks.json."""
+    mod = _load_build()
+    flat = {"decks": [{"id": "d1", "kind": "sutra", "short": "d1", "attributed": "", "items": [
+        {"id": "c1", "title": "T", "md": "**hi**", "book": "B", "attributed": "", "author": "A",
+         "year": "2020", "page": "1", "url": "", "exact": True, "speaker": "", "theme": "",
+         "why": "", "note": "", "source_file": "", "words": 1},
+    ]}]}
+    (tmp_path / "decks.json").write_text(json.dumps(flat, ensure_ascii=False), "utf-8")
+    (tmp_path / "config.json").write_text((R / "config.json").read_text("utf-8"), "utf-8")
+    (tmp_path / "template.html").write_text((R / "template.html").read_text("utf-8"), "utf-8")
+    out = mod.build(tmp_path / "r.html", here=tmp_path)
+    html = out.read_text("utf-8")
+    assert '"sutras":[' in html.replace(" ", ""), "(e) the page payload must always carry sutras"
+    assert "__PAYLOAD_JSON__" not in html
+
+
+# ---- #316 round 2: the sutra strip, above the tabs -------------------------------------------
+
+def test_sutra_strip_sits_above_the_tabs_and_renders_with_one_sutra():
+    """(f) THE STRIP NOBODY NOTICES. One segment per sutra, styled with the progress bar's own
+    "seg" tokens (no new colours), placed before nav.tabs in the markup so it reads as a level
+    above the tab row -- and present even when there is only one sutra to show."""
+    assert 'id="sutraStrip"' in HTML
+    assert HTML.index('id="sutraStrip"') < HTML.index('id="tabs"'), "(f) the strip must precede nav.tabs"
+    for s in SUTRAS:
+        assert s["label"] in HTML, f"(f) sutra {s['id']} label missing from the build"
+
+
+def test_sutra_navigation_keyboard_url_param_and_scoped_state():
+    """(f) `[` / `]` step between sutras; `?sutra=<id>` is read on load and re-emitted by
+    paramString(); and favourites + position memory are namespaced by sutra id so switching
+    sutras cannot leak one sutra's state into another's."""
+    assert 'e.key === "["' in HTML, "(f) the [ shortcut is not wired"
+    assert 'e.key === "]"' in HTML, "(f) the ] shortcut is not wired"
+    assert 'Q.get("sutra")' in HTML, "(f) the sutra URL parameter is not read on load"
+    assert '"sutra=" +' in HTML, "(f) paramString() does not emit sutra="
+    assert '"-fav"' in HTML, "(f) favourites are not namespaced by sutra id"
 
 
 def test_reference_strip_names_the_real_host_of_the_link():

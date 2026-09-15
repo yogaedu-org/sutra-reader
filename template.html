@@ -92,6 +92,15 @@ nav.tabs{display:flex;flex-wrap:wrap;gap:2px;margin:26px 0 0;border-bottom:1px s
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .count b{color:var(--ink);font-weight:600}
 
+/* #316: the sutra strip -- one segment per sutra, above nav.tabs. Same "seg" tokens as the
+   progress bar (.now / .done), no new colours; each segment is a real button, not a span, since
+   (unlike the progress bar's own drag-to-scrub) every sutra is its own discrete target. */
+.sutra-strip{margin:26px 0 0;display:flex;gap:3px}
+.sutra-strip .seg{appearance:none;border:0;padding:0;cursor:pointer}
+.sutra-strip .seg:hover:not(.now){background:var(--line)}
+.sutra-strip .seg:focus-visible{outline:2px solid var(--ember);outline-offset:2px}
+body.fit-on .sutra-strip{display:none}
+
 main{margin:24px 0 0}
 article{background:var(--surface);border:1px solid var(--line);border-radius:4px;
   box-shadow:var(--shadow);overflow:hidden;position:relative}
@@ -398,6 +407,7 @@ __THEME_CSS__
     <p class="dates" id="dates"></p>
   </header>
 
+  <div class="sutra-strip" id="sutraStrip" role="tablist" aria-label="Sutras"></div>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Reading types"></nav>
   <div class="decks" id="decks"></div>
   <div class="favbar" id="favbar">
@@ -501,32 +511,30 @@ __THEME_CSS__
   var CONFIG = JSON.parse(document.getElementById("config").textContent);
   var FEAT = CONFIG.features || {}, AUTO = CONFIG.auto || {};
   var SK = (CONFIG.storageKey || "yajna") + "-";
-  var TABS = (CONFIG.tabs || []).map(function(t){ return {id:t.id, label:t.label, kinds:t.kinds}; });
-  DATA.decks.forEach(function(d){ d.items = d.items.filter(function(it){ return !it.hidden; }); });
-  TABS.forEach(function(t){
-    t.decks = DATA.decks.filter(function(d){ return t.kinds.indexOf(d.kind) > -1; });
-    t.count = t.decks.reduce(function(n,d){ return n + d.items.length; }, 0);
-  });
-  TABS = TABS.filter(function(t){ return t.count > 0; });
 
-  // ---------- favourites (#305 round 8) ----------------------------------------------------
+  // ---------- #316: the sutra level. Every deck, tab-count, favourite and position memory
+  // below is scoped to SUTRAS[sutraIdx] and rebuilt by rebuildForSutra() whenever it changes. ----
+  var SUTRAS = DATA.sutras || [];
+  var sutraIdx = 0;
+  function curSutra(){ return SUTRAS[sutraIdx]; }
+
+  var TABS, FAV, FAV_SHARED, FAV_TAB;
+
+  // ---------- favourites (#305 round 8; namespaced per sutra since #316) -------------------
   // Stored as an ARRAY OF CARD IDS, not positions: a card keeps its id when decks are reordered
-  // or re-culled, so a favourite survives a new pass. The tab is appended AFTER the count>0
-  // filter above, deliberately -- it must still show when empty, to carry the instruction.
-  var FAV = [];
-  try { FAV = JSON.parse(localStorage.getItem(SK + "fav") || "[]") || []; } catch (err) { FAV = [];}
-  if (!Array.isArray(FAV)) FAV = [];
-  var FAV_SHARED = null;            // ids arriving via ?fav= -- a shared set, never overwrites yours
+  // or re-culled, so a favourite survives a new pass. Keyed by sutra id so hearting a card in one
+  // sutra can never bleed into another's Favorites tab.
+  function favLoad(sid){
+    var out = [];
+    try { out = JSON.parse(localStorage.getItem(SK + sid + "-fav") || "[]") || []; } catch (err) { out = []; }
+    return Array.isArray(out) ? out : [];
+  }
   function favIds(){ return FAV_SHARED || FAV; }
-  function favSave(){ try { localStorage.setItem(SK + "fav", JSON.stringify(FAV)); } catch (err) {} }
+  function favSave(){ try { localStorage.setItem(SK + curSutra().id + "-fav", JSON.stringify(FAV)); } catch (err) {} }
   function favHas(id){ return favIds().indexOf(id) > -1; }
-
-  var FAV_TAB = {id:"favorites", label:"Favorites", kinds:[], synthetic:true,
-                 decks:[{id:"favorites", kind:"favorites", short:"Favorites", label:"Favorites", items:[]}],
-                 count:0};
   function favRebuild(){
     var want = favIds(), byId = {};
-    DATA.decks.forEach(function(d){
+    curSutra().decks.forEach(function(d){
       d.items.forEach(function(it){
         var id = it.id || (d.id + ":" + d.items.indexOf(it));
         // stamp the SOURCE deck's kind onto the copy: render() reads it.kind first, which is what
@@ -539,8 +547,29 @@ __THEME_CSS__
     FAV_TAB.decks[0].items = items;
     FAV_TAB.count = items.length;
   }
-  favRebuild();
-  TABS.push(FAV_TAB);
+
+  // (re)builds TABS, favourites and the Favorites tab from curSutra() -- called once at load and
+  // again on every sutra switch, so a tab count, a favourite or the Favorites tab itself can
+  // never carry over from the sutra just left.
+  function rebuildForSutra(){
+    TABS = (CONFIG.tabs || []).map(function(t){ return {id:t.id, label:t.label, kinds:t.kinds}; });
+    curSutra().decks.forEach(function(d){ d.items = d.items.filter(function(it){ return !it.hidden; }); });
+    TABS.forEach(function(t){
+      t.decks = curSutra().decks.filter(function(d){ return t.kinds.indexOf(d.kind) > -1; });
+      t.count = t.decks.reduce(function(n,d){ return n + d.items.length; }, 0);
+    });
+    TABS = TABS.filter(function(t){ return t.count > 0; });
+    FAV = favLoad(curSutra().id);
+    FAV_SHARED = null;          // ids arriving via ?fav= -- a shared set, never overwrites yours
+    // the tab is appended AFTER the count>0 filter above, deliberately -- it must still show
+    // when empty, to carry the instruction.
+    FAV_TAB = {id:"favorites", label:"Favorites", kinds:[], synthetic:true,
+               decks:[{id:"favorites", kind:"favorites", short:"Favorites", label:"Favorites", items:[]}],
+               count:0};
+    favRebuild();
+    TABS.push(FAV_TAB);
+  }
+  rebuildForSutra();
 
   var state = {tab:0, deck:0, idx:0}, pos = {}, PICKS = {};
   function readParams(){   // #297: the fragment form works where a host strips the query string
@@ -549,6 +578,29 @@ __THEME_CSS__
     return q;
   }
   var Q = readParams();
+  // #316: switch sutra, resetting tab/deck/position and stopping any running auto-advance --
+  // curSutra().decks is a different array, so an in-flight auto timer could index past its end.
+  function switchSutra(i){
+    if (i < 0 || i >= SUTRAS.length || i === sutraIdx) return;
+    if (state.auto) setAuto(false);
+    sutraIdx = i;
+    state = {tab:0, deck:0, idx:0}; PICKS = {};
+    rebuildForSutra();
+    edReload();
+    render();
+  }
+  function buildSutraStrip(){
+    var host = $("sutraStrip"), f = document.createDocumentFragment();
+    SUTRAS.forEach(function(s, i){
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "seg" + (i === sutraIdx ? " now" : i < sutraIdx ? " done" : "");
+      b.setAttribute("role", "tab"); b.setAttribute("aria-selected", i === sutraIdx ? "true" : "false");
+      b.title = (s.label || s.id) + (s.sanskrit ? " · " + s.sanskrit : "");
+      b.addEventListener("click", function(){ switchSutra(i); });
+      f.appendChild(b);
+    });
+    host.replaceChildren(f);
+  }
   function pick(){ var p = PICKS[pkey()]; return p && p.length ? p : null; }
   function parseCards(spec, d){
     var out = {}, ids = d.items.map(function(it){ return it.id || ""; });
@@ -569,8 +621,15 @@ __THEME_CSS__
 
   function deck(){ return TABS[state.tab].decks[state.deck]; }
   function item(){ var d = deck(); return d ? d.items[state.idx] : null; }
-  function pkey(){ return TABS[state.tab].id + ":" + state.deck; }
+  function pkey(){ return curSutra().id + ":" + TABS[state.tab].id + ":" + state.deck; }   // #316: namespaced by sutra
   function applyQuery(){
+    // #316: ?sutra=<id> -- switch sutra BEFORE tab/deck/card below, since those resolve against
+    // curSutra()'s own decks. rebuildForSutra()+edReload() mirror switchSutra(), without the
+    // state reset -- the params below set tab/deck/card explicitly, so there is nothing to reset.
+    if (Q.get("sutra")){
+      var si = SUTRAS.map(function(s){ return s.id; }).indexOf(Q.get("sutra"));
+      if (si > -1 && si !== sutraIdx){ sutraIdx = si; rebuildForSutra(); edReload(); }
+    }
     // ?fav=<id>,<id> -- a SHARED set of favourites. It never overwrites the viewer's own stored
     // favourites; it is a view onto someone else's selection until they heart something, at
     // which point FAV_SHARED is dropped and their own list takes over again.
@@ -645,7 +704,7 @@ __THEME_CSS__
     var d = deck(); if (d && state.idx >= d.items.length) state.idx = Math.max(0, d.items.length - 1);
     var it = item(), n = d ? d.items.length : 0;
     document.body.classList.toggle("is-quote", (it && it.kind ? it.kind : TABS[state.tab].id) === "quotes");
-    buildTabs(); buildDecks();
+    buildSutraStrip(); buildTabs(); buildDecks();
 
     var bar = $("bar"); bar.replaceChildren();
     var segs = Math.min(n, 60), per = n / segs || 1;
@@ -830,10 +889,16 @@ __THEME_CSS__
   try { var ed0 = JSON.parse(localStorage.getItem(SK + "edit") || "null"); if (ed0 && ed0.order) ED = ed0; } catch (err) {}
   function edSave(){ try { localStorage.setItem(SK + "edit", JSON.stringify(ED)); } catch (err) {} }
   var ORIG = {};   // deck id -> original items (unfiltered), so hidden/reorder/edits are reversible in-page
-  DATA.decks.forEach(function(d){ ORIG[d.id] = d.items.map(function(it){ return Object.assign({}, it); }); });
   var EDIT_FIELDS = ["title","speaker","theme","why","note","md"];
+  // #316: ORIG is rebuilt from curSutra().decks -- once at load, and again on every sutra switch
+  // (switchSutra() / applyQuery()'s ?sutra= branch), so Edit mode never edits the wrong sutra.
+  function edReload(){
+    ORIG = {};
+    curSutra().decks.forEach(function(d){ ORIG[d.id] = d.items.map(function(it){ return Object.assign({}, it); }); });
+    edApply();
+  }
   function edApply(){
-    DATA.decks.forEach(function(d){
+    curSutra().decks.forEach(function(d){
       var base = ORIG[d.id].map(function(it){ return Object.assign({}, it); });
       var byId = {}; base.forEach(function(it){ byId[it.id] = it; });
       var order = ED.order[d.id];
@@ -847,7 +912,7 @@ __THEME_CSS__
     });
     TABS.forEach(function(t){ t.count = t.decks.reduce(function(n,d){ return n + d.items.length; }, 0); });
   }
-  edApply();
+  edReload();
   function edSelInfo(){ $("edSelN").textContent = ED.selected.length ? "(" + ED.selected.length + ")" : ""; }
   function edHeader(kind){
     return {_this_is: "Sutra Reader " + kind + " — " + (CONFIG.repo || "repo?") + " " + (CONFIG.project || "project?")
@@ -1150,6 +1215,10 @@ __THEME_CSS__
       var de = document.documentElement;
       if (document.fullscreenElement){ if (document.exitFullscreen) document.exitFullscreen(); }
       else if (de.requestFullscreen){ de.requestFullscreen().catch(function(){}); }
+    } else if (e.key === "["){    // #316: step to the previous / next sutra
+      e.preventDefault(); switchSutra(sutraIdx - 1);
+    } else if (e.key === "]"){
+      e.preventDefault(); switchSutra(sutraIdx + 1);
     }
   });
 
@@ -1231,7 +1300,8 @@ __THEME_CSS__
   applyQuery();
   $("occasion").textContent = CONFIG.occasion || "";
   if (CONFIG.title) document.querySelector("h1").textContent = CONFIG.title;
-  var total = DATA.decks.reduce(function(n,d){ return n + d.items.length; }, 0);
+  // #316: the whole corpus across every sutra, not just the one showing -- a global page stat.
+  var total = SUTRAS.reduce(function(n,s){ return n + s.decks.reduce(function(m,d){ return m + d.items.length; }, 0); }, 0);
   $("dates").textContent = (CONFIG.dates || "") + " · " + total + " verbatim excerpts from the SYP corpus";
   $("foot").innerHTML =
     "Every passage, story and quote here is a <b>verbatim</b> extract, checked as a genuine "
@@ -1272,7 +1342,7 @@ __THEME_CSS__
 
   // ---------- parameters panel (#297): test and share the URL parameters from inside the reader ----------
   function paramString(){
-    var out = ["tab=" + TABS[state.tab].id], d = deck(), pk = pick();
+    var out = ["sutra=" + curSutra().id, "tab=" + TABS[state.tab].id], d = deck(), pk = pick();
     if (TABS[state.tab].id === "favorites"){
       var ids = favIds();
       if (ids.length) out.push("fav=" + ids.map(encodeURIComponent).join(","));
