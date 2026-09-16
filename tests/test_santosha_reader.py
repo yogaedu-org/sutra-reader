@@ -172,3 +172,18 @@ def test_reference_strip_names_the_real_host_of_the_link():
     oshofragrance.org. The strip must derive the host from the url, never hardcode one."""
     assert '"satyamyogaprasad.net → p."' not in HTML, "the host is still hardcoded in the reference strip"
     assert "new URL(it.url).hostname" in HTML
+
+
+def test_swipe_turns_cards_without_stealing_scroll_or_widgets():
+    """#317 (owner, 2026-09-16): swiping on a phone did nothing — neither reader listened for a
+    horizontal drag. Left = next, right = previous, through move(). The guards are what make it
+    safe: vertical scrolling stays with the browser, a drag on the audio player / a link / a form
+    field / the etymology table belongs to that element, and Edit mode reorders rather than pages."""
+    assert "#317: swipe" in HTML, "the swipe handler is not in the build"
+    js = HTML.split("#317: swipe left / right on the card", 1)[1].split("})();", 1)[0]
+    assert 'el.addEventListener("touchstart"' in js and 'el.addEventListener("touchend"' in js
+    assert "move(dx < 0 ? 1 : -1)" in js, "swipe direction is not wired to move()"
+    assert "SWIPE_RATIO * Math.abs(dy)" in js, "a vertical drag could turn the page"
+    assert 'audio,a,button,input,textarea,select,table' in js, "a drag on a widget is not excluded"
+    assert 'classList.contains("edit-on")' in js, "swipe is live in Edit mode"
+    assert "#card{touch-action:pan-y}" in HTML, "vertical scrolling is not left to the browser"
