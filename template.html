@@ -369,7 +369,7 @@ __THEME_CSS__
   <div class="topbar">
     <span class="left-icons">
       <button class="icon" id="infoBtn" type="button" title="About this reader" aria-expanded="false">&#9432;</button>
-      <button class="icon" id="linkBtn" type="button" title="Parameters: apply tab / deck / cards / card / auto / fit / live / lang to this view, or copy a link to it" aria-expanded="false">&#128279;</button>
+      <button class="icon" id="linkBtn" type="button" title="Copy a link to this page">&#128279;</button>
       <button class="icon" id="themeBtn" type="button" title="Theme: follows your device">&#9728;&#9790;</button>
       <button class="icon lang" id="langBtn" type="button" title="Idioma / Language: English &harr; Espa&ntilde;ol (L)" aria-pressed="false">ES</button>
     </span>
@@ -396,10 +396,6 @@ __THEME_CSS__
         rel="noopener" aria-label="open the feedback form">&#8599;</a></span></p>
   <p class="build-stamp" id="buildStamp" hidden>Last updated &middot; <time id="buildWhen"></time> &middot; <code id="buildCommit"></code></p>
   <div class="linkbar" id="linkbar" hidden>
-    <input id="linkIn" type="text" spellcheck="false" autocomplete="off" aria-label="URL parameters for this view"
-           placeholder="tab=sutra&amp;deck=sutra-renderings&amp;card=1&amp;lang=es">
-    <button class="btn primary" id="linkApply" type="button" title="Show the view these parameters describe (Enter)">Apply</button>
-    <button class="btn" id="linkCopy" type="button" title="Copy a link to this view">Copy link</button>
     <span class="muted" id="linkMsg" aria-live="polite"></span>
   </div>
   <div class="fitbar" id="fitbar" hidden></div>
@@ -1148,8 +1144,8 @@ __THEME_CSS__
   });
   $("shareBtn").addEventListener("click", function(){
     copyText(cardUrl(), function(ok){
-      cardSay(ok ? "link for card copied. a collection of favorites can be shared from the Favorites tab."
-                 : "copy blocked by the browser");
+      cardSay(ok ? "Card link copied to clipboard."
+                 : "Copy blocked by the browser.");
     });
   });
   $("favShare").addEventListener("click", function(){
@@ -1394,22 +1390,21 @@ __THEME_CSS__
     render();
     applyModes();
   }
-  var linkBar = $("linkbar"), linkIn = $("linkIn"), linkMsg = $("linkMsg");
-  function linkOpen(on){
-    linkBar.hidden = !on; $("linkBtn").setAttribute("aria-expanded", on ? "true" : "false"); linkMsg.textContent = "";
-    if (on){ linkIn.value = paramString(); linkIn.focus(); linkIn.select(); }
+  var linkBar = $("linkbar"), linkMsg = $("linkMsg"), linkHideT = null;
+  function linkSay(msg){            // the bar exists only to carry this sentence
+    linkMsg.textContent = msg; linkBar.hidden = false;
+    clearTimeout(linkHideT); linkHideT = setTimeout(function(){ linkBar.hidden = true; }, 3000);
   }
-  window.syncLinkField = function(){ if (!linkBar.hidden && document.activeElement !== linkIn) linkIn.value = paramString(); };
-  $("linkBtn").addEventListener("click", function(){ linkOpen(linkBar.hidden); });
-  $("linkApply").addEventListener("click", function(){ applyParamString(linkIn.value); linkIn.value = paramString(); linkMsg.textContent = "applied"; });
-  $("linkCopy").addEventListener("click", function(){
-    var framed = window.top !== window, text = framed ? linkIn.value : location.href.split(/[?#]/)[0] + "?" + linkIn.value;
-    copyText(text, function(ok){ linkMsg.textContent = ok ? (framed ? "parameters copied \u2014 paste after the reader address\u2019s ? or #" : "link copied") : "copy failed"; });
-  });
-  linkIn.addEventListener("keydown", function(e){   // the page shortcuts (space, arrows, A, L, E, F) must not fire while typing
-    e.stopPropagation();
-    if (e.key === "Enter"){ e.preventDefault(); $("linkApply").click(); }
-    else if (e.key === "Escape"){ linkOpen(false); }
+  $("linkBtn").addEventListener("click", function(){
+    // embedded in an iframe there is no address of our own to hand out, so give the
+    // parameters and say what to do with them
+    var framed = window.top !== window;
+    var text = framed ? paramString() : location.href.split(/[?#]/)[0] + "?" + paramString();
+    copyText(text, function(ok){
+      linkSay(ok ? (framed ? "Page parameters copied to clipboard \u2014 paste after the reader address\u2019s ? or #"
+                           : "Page link copied to clipboard.")
+                 : "Copy blocked by the browser.");
+    });
   });
 })();
 </script>
