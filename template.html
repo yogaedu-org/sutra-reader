@@ -361,8 +361,14 @@ body.fit-on .build-stamp{display:none}
 .overall-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
 .overall-row .btn{padding:6px 12px;font-size:.82rem;box-shadow:none}
 body.fit-on .overall,body.live-on .overall{display:none}
-.linkbar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.4rem 0 .6rem}
-.linkbar input{flex:1 1 18rem;min-width:0;font:inherit;font-size:.9rem;padding:.35rem .5rem;border:1px solid var(--rule,#ccc);border-radius:.3rem;background:inherit;color:inherit}
+/* a notification, not a row in the page: fixed, so showing it never reflows anything */
+.linkbar{position:fixed;top:.75rem;left:50%;transform:translateX(-50%);z-index:60;
+         max-width:calc(100vw - 2rem);padding:.45rem .85rem;border:1px solid var(--line);
+         border-radius:.4rem;background:var(--surface);color:var(--ink);
+         box-shadow:0 2px 12px rgba(0,0,0,.22);font-size:.9rem;text-align:center;
+         opacity:0;pointer-events:none;transition:opacity .18s ease}
+.linkbar.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.linkbar{transition:none}}
 </style>
 __THEME_CSS__
 <div class="wrap">
@@ -395,7 +401,7 @@ __THEME_CSS__
         id="feedbackText"></span><a id="feedbackArrow" class="src ext" href="#" target="_blank"
         rel="noopener" aria-label="open the feedback form">&#8599;</a></span></p>
   <p class="build-stamp" id="buildStamp" hidden>Last updated &middot; <time id="buildWhen"></time> &middot; <code id="buildCommit"></code></p>
-  <div class="linkbar" id="linkbar" hidden>
+  <div class="linkbar" id="linkbar">
     <span class="muted" id="linkMsg" aria-live="polite"></span>
   </div>
   <div class="fitbar" id="fitbar" hidden></div>
@@ -411,7 +417,7 @@ __THEME_CSS__
   <div class="decks" id="decks"></div>
   <div class="favbar" id="favbar">
     <button class="btn" id="favShare" type="button"
-            title="Copy a link that opens this whole set of favourites">&#128279; Share these favourites</button>
+            title="Copy a link that opens this whole set of favourites">&#128279; Share Favorites collection</button>
     <span class="favnote" id="favNote"></span>
   </div>
 
@@ -1153,8 +1159,8 @@ __THEME_CSS__
     if (!ids.length){ cardSay("no favourites yet"); return; }
     var base = location.href.split(/[?#]/)[0];
     copyText(base + "?tab=favorites&fav=" + ids.map(encodeURIComponent).join(","), function(ok){
-      $("favNote").textContent = ok ? "link copied \u2014 it opens this whole set of favourites"
-                                    : "copy blocked by the browser";
+      $("favNote").textContent = ok ? "Favorites collection link copied."
+                                    : "Copy blocked by the browser.";
     });
   });
 
@@ -1392,8 +1398,8 @@ __THEME_CSS__
   }
   var linkBar = $("linkbar"), linkMsg = $("linkMsg"), linkHideT = null;
   function linkSay(msg){            // the bar exists only to carry this sentence
-    linkMsg.textContent = msg; linkBar.hidden = false;
-    clearTimeout(linkHideT); linkHideT = setTimeout(function(){ linkBar.hidden = true; }, 3000);
+    linkMsg.textContent = msg; linkBar.classList.add("show");
+    clearTimeout(linkHideT); linkHideT = setTimeout(function(){ linkBar.classList.remove("show"); }, 2600);
   }
   $("linkBtn").addEventListener("click", function(){
     // embedded in an iframe there is no address of our own to hand out, so give the
